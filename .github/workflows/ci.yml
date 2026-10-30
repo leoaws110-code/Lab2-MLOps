@@ -33,12 +33,11 @@ jobs:
     needs: test
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v4
-
-      - name: Lowercase Repository Name
-        run: |
-          echo "REPO_LOWER=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -47,14 +46,21 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build Docker image
-        run: docker build -t ghcr.io/${{ env.REPO_LOWER }}:${{ github.sha }} .
+        run: |
+          IMAGE_ID=ghcr.io/$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          docker build -t $IMAGE_ID:${{ github.sha }} .
+          docker save -o image.tar $IMAGE_ID:${{ github.sha }}
+
       - name: Run Trivy scanner
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: 'ghcr.io/${{ env.REPO_LOWER }}:${{ github.sha }}'
+          input: 'image.tar'
           format: 'table'
           exit-code: '0'
           vuln-type: 'os,package'
           severity: 'CRITICAL,HIGH'
+
       - name: Push Docker image
-        run: docker push ghcr.io/${{ env.REPO_LOWER }}:${{ github.sha }}
+        run: |
+          IMAGE_ID=ghcr.io/$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          docker push $IMAGE_ID:${{ github.sha }}
