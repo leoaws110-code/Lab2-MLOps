@@ -57,7 +57,6 @@ jobs:
           input: 'image.tar'
           format: 'table'
           exit-code: '0'
-          vuln-type: 'os,package'
           severity: 'CRITICAL,HIGH'
 
       - name: Push Docker image
